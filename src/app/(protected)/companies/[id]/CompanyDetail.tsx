@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Mail,
@@ -13,6 +14,7 @@ import {
   XCircle,
   Undo2,
   AlertCircle,
+  Trash2,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api-client";
 import type { ApprovalPayload, Company } from "@/lib/types";
@@ -22,14 +24,16 @@ import DocumentCard from "@/components/DocumentCard";
 import ImageLightbox from "@/components/ImageLightbox";
 import ConfirmModal from "@/components/ConfirmModal";
 import RejectModal from "@/components/RejectModal";
+import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 import { DetailSkeleton } from "@/components/Skeletons";
 import { ErrorState } from "@/components/States";
 import { useToast } from "@/components/Toast";
 
-type Dialog = "none" | "approve" | "pending" | "reject";
+type Dialog = "none" | "approve" | "pending" | "reject" | "delete";
 
 export default function CompanyDetail({ id }: { id: string }) {
   const toast = useToast();
+  const router = useRouter();
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +84,33 @@ export default function CompanyDetail({ id }: { id: string }) {
     } finally {
       setActing(false);
     }
+  };
+
+  // Hard-delete is separate from runAction: on success there's no company state
+  // to refresh — the record is gone, so we navigate back to the dashboard. On
+  // failure (e.g. shops/tasks attached, or APPROVED) we keep the user on the
+  // page and surface the backend's specific reason via toast.
+  const runDelete = async () => {
+    setActing(true);
+    try {
+      await api.deleteCompany(id);
+      setDialog("none");
+      toast.success(
+        `${company?.name ?? "Company"} permanently deleted.`
+      );
+      // Replace so the user can't navigate back to a now-404 page.
+      router.replace("/");
+      router.refresh();
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : "Could not delete this company. Please try again.";
+      toast.error(msg);
+      setActing(false);
+    }
+    // Note: we deliberately don't unset `acting` on success — the page is
+    // navigating away and unsetting would briefly re-enable buttons.
   };
 
   if (loading) return <DetailSkeleton />;
@@ -212,6 +243,33 @@ export default function CompanyDetail({ id }: { id: string }) {
             onPending={() => setDialog("pending")}
           />
         </div>
+
+        {/* Danger zone — only shown when the backend will actually allow it.
+            APPROVED companies cannot be deleted (would wipe real users/shops);
+            the admin must un-approve first. We hide the button entirely in
+            that case rather than show it disabled, so the only path is the
+            safe one. */}
+        {company.approvalStatus !== "APPROVED" && (
+          <div className="mt-6 border-t border-slate-100 pt-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-red-700">Danger zone</h3>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Permanently remove this company and all related records.
+                  Cannot be undone.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDialog("delete")}
+                className="inline-flex items-center gap-2 self-start rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete company
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Lightbox */}
@@ -275,6 +333,14 @@ export default function CompanyDetail({ id }: { id: string }) {
             `${company.name} has been rejected.`
           )
         }
+      />
+
+      <DeleteConfirmModal
+        open={dialog === "delete"}
+        companyName={company.name}
+        loading={acting}
+        onClose={() => setDialog("none")}
+        onConfirm={runDelete}
       />
     </div>
   );

@@ -84,4 +84,13 @@ export const api = {
       body: JSON.stringify(payload),
     });
   },
+
+  /**
+   * Permanently delete a non-approved company. The backend will refuse if the
+   * company is APPROVED or has shops/tasks attached — those errors surface as
+   * an ApiError with the backend's human-readable message.
+   */
+  deleteCompany(id: number | string): Promise<{ success: true; message?: string }> {
+    return request(`/api/companies/${id}`, { method: "DELETE" });
+  },
 };
