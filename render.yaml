@@ -1,0 +1,26 @@
+# Render Blueprint for FieldGuard Admin.
+# Point Render at this repo (New + → Blueprint) and it provisions the service below.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: fieldguard-admin
+    runtime: node
+    plan: free # bump to "starter" or higher to avoid free-tier cold starts
+    region: oregon # change to the region closest to your users / backend
+    # Install + build. NEXT_PUBLIC_* vars must exist at build time, which they do
+    # because envVars below are injected for both build and runtime.
+    buildCommand: npm ci && npm run build
+    # Render injects $PORT; bind Next to it and to 0.0.0.0 so the proxy can reach it.
+    startCommand: npx next start -H 0.0.0.0 -p $PORT
+    autoDeploy: true
+    healthCheckPath: /login
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # NODE_ENV=production makes the session cookie `secure` (Render serves HTTPS).
+      - key: NODE_ENV
+        value: production
+      # Base URL of the FieldGuard backend (no trailing slash).
+      # Set the real value in the Render dashboard or here before first deploy.
+      - key: NEXT_PUBLIC_API_BASE_URL
+        sync: false
