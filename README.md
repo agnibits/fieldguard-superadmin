@@ -81,6 +81,33 @@ green-and-white theme.
 
 ---
 
+## Deploying to Render
+
+This repo includes a [`render.yaml`](./render.yaml) Blueprint, so Render provisions
+the service for you.
+
+1. **Push this repo to GitHub** (or GitLab/Bitbucket).
+2. In the Render dashboard: **New + → Blueprint**, then select this repo. Render reads
+   `render.yaml` and shows a `fieldguard-admin` web service.
+3. When prompted, set **`NEXT_PUBLIC_API_BASE_URL`** to your backend's public HTTPS URL
+   (e.g. `https://fieldguard-be.onrender.com`, no trailing slash). It's marked
+   `sync: false` so it must be entered here — it is **not** stored in the repo.
+4. Click **Apply**. Render runs `npm ci && npm run build`, then starts the app with
+   `npx next start -H 0.0.0.0 -p $PORT`.
+
+Notes:
+
+- The service binds to Render's injected `$PORT` on `0.0.0.0`. Health checks hit `/login`.
+- `NODE_ENV=production` makes the session cookie `secure`; Render serves over HTTPS, so
+  the cookie is sent correctly.
+- The **free** plan cold-starts after inactivity. Bump `plan: starter` in `render.yaml`
+  (or in the dashboard) to keep it warm.
+- `NEXT_PUBLIC_API_BASE_URL` is read only server-side by the proxy, but Next still inlines
+  `NEXT_PUBLIC_*` at build time — Render injects Blueprint env vars during the build, so the
+  value is present when `npm run build` runs.
+
+---
+
 ## Environment variables
 
 | Variable                   | Required | Description                                                |
