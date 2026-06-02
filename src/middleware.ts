@@ -16,7 +16,11 @@ export function middleware(req: NextRequest) {
   }
 
   // Protected pages require a session cookie.
-  const isProtected = pathname === "/" || pathname.startsWith("/companies");
+  const isProtected =
+    pathname === "/" ||
+    pathname.startsWith("/companies") ||
+    pathname.startsWith("/subscriptions") ||
+    pathname.startsWith("/settings");
   if (isProtected && !hasSession) {
     const url = new URL("/login", req.url);
     return NextResponse.redirect(url);
@@ -27,5 +31,11 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   // Run on app pages but skip Next internals, the API proxy, and static assets.
-  matcher: ["/", "/login", "/companies/:path*"],
+  matcher: [
+    "/",
+    "/login",
+    "/companies/:path*",
+    "/subscriptions/:path*",
+    "/settings/:path*",
+  ],
 };

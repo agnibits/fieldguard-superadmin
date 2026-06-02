@@ -7,6 +7,7 @@ import { Building2, Mail, Phone, ChevronRight } from "lucide-react";
 import type { Company } from "@/lib/types";
 import { formatDate } from "@/lib/format";
 import StatusBadge from "./StatusBadge";
+import PlanBadge from "./PlanBadge";
 
 export default function CompanyCard({ company }: { company: Company }) {
   return (
@@ -24,7 +25,12 @@ export default function CompanyCard({ company }: { company: Company }) {
             <p className="font-mono text-xs text-slate-400">{company.uniqueId}</p>
           </div>
         </div>
-        <StatusBadge status={company.approvalStatus} size="sm" />
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <StatusBadge status={company.approvalStatus} size="sm" />
+          {company.subscriptionPlan && (
+            <PlanBadge plan={company.subscriptionPlan} size="xs" />
+          )}
+        </div>
       </div>
 
       <div className="mt-3 space-y-1 text-sm text-slate-500">
@@ -78,7 +84,12 @@ export function CompanyRow({ company }: { company: Company }) {
       </td>
       <td className="px-4 py-3">
         <Link href={`/companies/${company.id}`} className="block">
-          <StatusBadge status={company.approvalStatus} size="sm" />
+          <div className="flex flex-col items-start gap-1">
+            <StatusBadge status={company.approvalStatus} size="sm" />
+            {company.subscriptionPlan && (
+              <PlanBadge plan={company.subscriptionPlan} size="xs" />
+            )}
+          </div>
         </Link>
       </td>
       <td className="px-4 py-3 text-right">

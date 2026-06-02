@@ -9,6 +9,14 @@ import type {
   ApprovalStatus,
   Company,
   CompaniesResponse,
+  PaymentSettingResponse,
+  ReviewPayload,
+  ReviewResponse,
+  SetSubscriptionPayload,
+  SetSubscriptionResponse,
+  SubscriptionRequestsResponse,
+  SubscriptionRequestStatus,
+  UploadUrlResponse,
 } from "./types";
 
 /** Error carrying the human-readable message + status from a proxy response. */
@@ -92,5 +100,77 @@ export const api = {
    */
   deleteCompany(id: number | string): Promise<{ success: true; message?: string }> {
     return request(`/api/companies/${id}`, { method: "DELETE" });
+  },
+
+  // --- Payment QR settings (Section A) ---------------------------------------
+
+  paymentSetting(): Promise<PaymentSettingResponse> {
+    return request("/api/payment-setting");
+  },
+
+  paymentUploadUrl(ext: string, mimeType: string): Promise<UploadUrlResponse> {
+    const qs = new URLSearchParams({ ext, mimeType }).toString();
+    return request(`/api/payment-setting/upload-url?${qs}`);
+  },
+
+  updatePaymentSetting(body: {
+    qrImageKey?: string;
+    paymentNote?: string;
+  }): Promise<PaymentSettingResponse> {
+    return request("/api/payment-setting", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+  },
+
+  /**
+   * Direct PUT of the file bytes to S3 using a presigned URL from
+   * paymentUploadUrl(). This goes browser → S3, NOT through our proxy.
+   * S3 will reject the request if the Content-Type header doesn't match the
+   * one baked into the presigned URL, so we set it explicitly.
+   */
+  async uploadToS3(uploadUrl: string, file: File): Promise<void> {
+    const res = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+    if (!res.ok) {
+      throw new ApiError(
+        `Upload failed (${res.status}). Please try again.`,
+        res.status
+      );
+    }
+  },
+
+  // --- Subscription verification (Sections B + C) ----------------------------
+
+  subscriptionRequests(
+    status?: SubscriptionRequestStatus | "ALL"
+  ): Promise<SubscriptionRequestsResponse> {
+    const qs = status && status !== "ALL" ? `?status=${status}` : "";
+    return request(`/api/subscription-requests${qs}`);
+  },
+
+  reviewSubscriptionRequest(
+    id: number | string,
+    payload: ReviewPayload
+  ): Promise<ReviewResponse> {
+    return request(`/api/subscription-requests/${id}/review`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // --- Manual subscription override (Section D) ------------------------------
+
+  setSubscription(
+    companyId: number | string,
+    payload: SetSubscriptionPayload
+  ): Promise<SetSubscriptionResponse> {
+    return request(`/api/companies/${companyId}/subscription`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 };

@@ -16,7 +16,7 @@ export class Unauthenticated extends Error {
 }
 
 interface BackendCallOptions {
-  method?: "GET" | "POST" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "DELETE";
   /** When true, attach the Bearer token; throws Unauthenticated if missing. */
   auth?: boolean;
   body?: unknown;

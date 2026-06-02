@@ -15,21 +15,26 @@ import {
   Undo2,
   AlertCircle,
   Trash2,
+  Pencil,
+  Users,
+  Infinity as InfinityIcon,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api-client";
-import type { ApprovalPayload, Company } from "@/lib/types";
+import type { ApprovalPayload, Company, SetSubscriptionPayload } from "@/lib/types";
 import { formatDate } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
+import PlanBadge from "@/components/PlanBadge";
 import DocumentCard from "@/components/DocumentCard";
 import ImageLightbox from "@/components/ImageLightbox";
 import ConfirmModal from "@/components/ConfirmModal";
 import RejectModal from "@/components/RejectModal";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
+import ManagePlanModal from "@/components/ManagePlanModal";
 import { DetailSkeleton } from "@/components/Skeletons";
 import { ErrorState } from "@/components/States";
 import { useToast } from "@/components/Toast";
 
-type Dialog = "none" | "approve" | "pending" | "reject" | "delete";
+type Dialog = "none" | "approve" | "pending" | "reject" | "delete" | "plan";
 
 export default function CompanyDetail({ id }: { id: string }) {
   const toast = useToast();
@@ -111,6 +116,23 @@ export default function CompanyDetail({ id }: { id: string }) {
     }
     // Note: we deliberately don't unset `acting` on success — the page is
     // navigating away and unsetting would briefly re-enable buttons.
+  };
+
+  const runSetPlan = async (payload: SetSubscriptionPayload) => {
+    setActing(true);
+    try {
+      const res = await api.setSubscription(id, payload);
+      // Server returns the updated company; merge so plan badges refresh.
+      setCompany(res.company);
+      setDialog("none");
+      toast.success(`Plan updated to ${payload.plan}.`);
+    } catch (err) {
+      const msg =
+        err instanceof ApiError ? err.message : "Could not update the plan.";
+      toast.error(msg);
+    } finally {
+      setActing(false);
+    }
   };
 
   if (loading) return <DetailSkeleton />;
@@ -199,6 +221,66 @@ export default function CompanyDetail({ id }: { id: string }) {
           </div>
         )}
       </section>
+
+      {/* Subscription / plan section. Only shown once the company is APPROVED,
+          since plan changes don't make sense for un-approved registrations. */}
+      {company.approvalStatus === "APPROVED" && (
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-slate-800">Subscription</h2>
+              <p className="mt-0.5 text-sm text-slate-500">
+                Current plan and seat limit. Use Manage plan for comps or Enterprise deals.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDialog("plan")}
+              className="inline-flex items-center gap-1.5 self-start rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
+            >
+              <Pencil className="h-4 w-4" />
+              Manage plan
+            </button>
+          </div>
+
+          <dl className="mt-5 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                Plan
+              </dt>
+              <dd className="mt-1.5">
+                <PlanBadge plan={company.subscriptionPlan ?? "FREE"} size="md" />
+              </dd>
+            </div>
+            <Field
+              icon={<CalendarDays className="h-4 w-4" />}
+              label="Expires"
+              value={
+                company.subscriptionExpiresAt
+                  ? formatDate(company.subscriptionExpiresAt)
+                  : (company.subscriptionPlan ?? "FREE") === "FREE"
+                  ? "—"
+                  : "No expiry"
+              }
+            />
+            <div>
+              <dt className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
+                <Users className="h-4 w-4" />
+                Seat limit
+              </dt>
+              <dd className="mt-1 text-sm text-slate-800">
+                {company.seatLimit === null || company.seatLimit === undefined ? (
+                  <span className="inline-flex items-center gap-1 text-slate-500">
+                    <InfinityIcon className="h-4 w-4" /> Unlimited
+                  </span>
+                ) : (
+                  company.seatLimit
+                )}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      )}
 
       {/* Document review */}
       <section className="mt-6">
@@ -341,6 +423,15 @@ export default function CompanyDetail({ id }: { id: string }) {
         loading={acting}
         onClose={() => setDialog("none")}
         onConfirm={runDelete}
+      />
+
+      <ManagePlanModal
+        open={dialog === "plan"}
+        companyName={company.name}
+        currentPlan={company.subscriptionPlan}
+        loading={acting}
+        onClose={() => setDialog("none")}
+        onConfirm={runSetPlan}
       />
     </div>
   );

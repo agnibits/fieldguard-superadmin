@@ -4,18 +4,26 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
+const SIZE_CLASSES = {
+  sm: "max-w-md",
+  md: "max-w-lg",
+  lg: "max-w-2xl",
+} as const;
+
 export default function Modal({
   open,
   onClose,
   children,
   labelledBy,
   closeOnBackdrop = true,
+  size = "sm",
 }: {
   open: boolean;
   onClose: () => void;
   children: ReactNode;
   labelledBy?: string;
   closeOnBackdrop?: boolean;
+  size?: keyof typeof SIZE_CLASSES;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -53,7 +61,7 @@ export default function Modal({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="relative z-10 w-full max-w-md animate-slide-up rounded-xl bg-white p-6 shadow-card-hover focus:outline-none"
+        className={`relative z-10 max-h-[90vh] w-full ${SIZE_CLASSES[size]} animate-slide-up overflow-y-auto rounded-xl bg-white p-6 shadow-card-hover focus:outline-none`}
       >
         {children}
       </div>
