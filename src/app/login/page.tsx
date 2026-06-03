@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Mail, Lock, Loader2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { api, ApiError } from "@/lib/api-client";
+
+// On a backend rate-limit (429), we lock the Sign-in button for this many
+// seconds before letting the admin try again. Mirrors the typical backend
+// rate-limit window so the next attempt is likely to succeed.
+const RATE_LIMIT_COOLDOWN_SECONDS = 60;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,9 +17,19 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Seconds remaining in the rate-limit cooldown, or 0 when not limited.
+  const [cooldown, setCooldown] = useState(0);
+
+  // Tick the cooldown down once per second while it's active.
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setInterval(() => setCooldown((c) => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(t);
+  }, [cooldown]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (cooldown > 0) return; // belt + braces with the disabled button
     setError(null);
     setSubmitting(true);
     try {
@@ -23,16 +38,38 @@ export default function LoginPage() {
       router.replace("/");
       router.refresh();
     } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.status === 401
-            ? "Invalid email or password."
-            : err.message
-          : "Something went wrong. Please try again.";
+      // Map the status to a message that tells the admin what to do next.
+      // We deliberately avoid leaking raw backend strings like "Too Many
+      // Requests" or "Internal Server Error" — those don't tell the user
+      // anything actionable.
+      let message = "Something went wrong. Please try again.";
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          message = "Invalid email or password.";
+        } else if (err.status === 429) {
+          message = `Too many sign-in attempts. Please wait ${RATE_LIMIT_COOLDOWN_SECONDS} seconds and try again.`;
+          setCooldown(RATE_LIMIT_COOLDOWN_SECONDS);
+        } else if (err.status >= 500) {
+          message =
+            "The backend is unavailable. It may be cold-starting — try again in a moment.";
+        } else if (err.fieldErrors && err.fieldErrors.length > 0) {
+          // 400 with field-level validation errors — surface the first.
+          message = err.fieldErrors[0].message;
+        } else {
+          message = err.message;
+        }
+      }
       setError(message);
       setSubmitting(false);
     }
   };
+
+  const locked = submitting || cooldown > 0;
+  const buttonLabel = submitting
+    ? "Signing in…"
+    : cooldown > 0
+    ? `Try again in ${cooldown}s`
+    : "Sign in";
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-white via-white to-brand-50 px-4 py-12">
@@ -59,7 +96,17 @@ export default function LoginPage() {
                 className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700"
               >
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{error}</span>
+                <span>
+                  {error}
+                  {cooldown > 0 && (
+                    <>
+                      {" "}
+                      <span className="font-semibold tabular-nums">
+                        ({cooldown}s)
+                      </span>
+                    </>
+                  )}
+                </span>
               </div>
             )}
 
@@ -114,11 +161,11 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={locked}
               className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus-visible:ring-2 focus-visible:ring-brand-500/60 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {submitting ? "Signing in…" : "Sign in"}
+              {buttonLabel}
             </button>
           </form>
         </div>
