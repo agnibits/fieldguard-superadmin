@@ -131,3 +131,38 @@ export interface SetSubscriptionResponse {
   company: Company;
   subscription: Subscription;
 }
+
+// --- Enterprise call-request inquiries ---------------------------------------
+
+export type InquiryStatus = "PENDING" | "CONTACTED" | "CLOSED";
+
+export interface EnterpriseInquiry {
+  id: number;
+  companyId: number;
+  company: { id: number; name: string; uniqueId: string };
+  requestedBy: { id: number; name: string; phone: string };
+  contactPhone: string;
+  expectedStaffCount: number;
+  message: string;
+  status: InquiryStatus;
+  adminNote: string | null;
+  handledBy: { id: number; name?: string } | number | null;
+  handledAt: string | null;
+  createdAt: string;
+}
+
+export interface EnterpriseInquiriesResponse {
+  count: number;
+  inquiries: EnterpriseInquiry[];
+}
+
+// Backend only accepts CONTACTED or CLOSED here (PENDING is the initial state
+// and can't be set via this endpoint).
+export interface InquiryStatusPayload {
+  status: "CONTACTED" | "CLOSED";
+  note?: string;
+}
+
+export interface InquiryResponse {
+  inquiry: EnterpriseInquiry;
+}

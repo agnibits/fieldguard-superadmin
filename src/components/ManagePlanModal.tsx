@@ -26,6 +26,9 @@ export default function ManagePlanModal({
   open,
   companyName,
   currentPlan,
+  initialPlan,
+  initialMonths,
+  initialSeatLimit,
   loading = false,
   onConfirm,
   onClose,
@@ -33,27 +36,48 @@ export default function ManagePlanModal({
   open: boolean;
   companyName: string;
   currentPlan?: Plan;
+  /** Pre-select a plan when opened (e.g. ENTERPRISE from a call-request flow). */
+  initialPlan?: Plan;
+  /** Pre-fill the months field. */
+  initialMonths?: number;
+  /** Pre-fill the seat limit (and switch off "Unlimited"). */
+  initialSeatLimit?: number | null;
   loading?: boolean;
   onConfirm: (payload: SetSubscriptionPayload) => void;
   onClose: () => void;
 }) {
   const titleId = useId();
-  const [plan, setPlan] = useState<Plan>(currentPlan ?? "PRO");
-  const [months, setMonths] = useState<string>("1");
-  const [seatLimit, setSeatLimit] = useState<string>("");
-  const [seatUnlimited, setSeatUnlimited] = useState(true);
+  const [plan, setPlan] = useState<Plan>(initialPlan ?? currentPlan ?? "PRO");
+  const [months, setMonths] = useState<string>(
+    initialMonths !== undefined ? String(initialMonths) : "1"
+  );
+  const [seatLimit, setSeatLimit] = useState<string>(
+    initialSeatLimit !== undefined && initialSeatLimit !== null
+      ? String(initialSeatLimit)
+      : ""
+  );
+  const [seatUnlimited, setSeatUnlimited] = useState(
+    initialSeatLimit === undefined || initialSeatLimit === null
+  );
   const [errors, setErrors] = useState<{ months?: string; seatLimit?: string }>({});
 
-  // Reset to sane defaults whenever the modal is (re)opened.
+  // Reset to (initial defaults || sane fallbacks) whenever the modal is (re)opened.
+  // The dependency list intentionally re-syncs when the caller swaps in new initial
+  // values — e.g. opening the modal for a different inquiry.
   useEffect(() => {
-    if (open) {
-      setPlan(currentPlan === "FREE" ? "PRO" : (currentPlan ?? "PRO"));
-      setMonths("1");
-      setSeatLimit("");
-      setSeatUnlimited(true);
-      setErrors({});
-    }
-  }, [open, currentPlan]);
+    if (!open) return;
+    const fallbackPlan: Plan =
+      initialPlan ?? (currentPlan === "FREE" ? "PRO" : currentPlan ?? "PRO");
+    setPlan(fallbackPlan);
+    setMonths(initialMonths !== undefined ? String(initialMonths) : "1");
+    setSeatLimit(
+      initialSeatLimit !== undefined && initialSeatLimit !== null
+        ? String(initialSeatLimit)
+        : ""
+    );
+    setSeatUnlimited(initialSeatLimit === undefined || initialSeatLimit === null);
+    setErrors({});
+  }, [open, currentPlan, initialPlan, initialMonths, initialSeatLimit]);
 
   const submit = () => {
     const next: typeof errors = {};

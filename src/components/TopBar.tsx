@@ -4,7 +4,15 @@
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
-import { ShieldCheck, LogOut, Loader2, Building2, CreditCard, Settings } from "lucide-react";
+import {
+  ShieldCheck,
+  LogOut,
+  Loader2,
+  Building2,
+  CreditCard,
+  Settings,
+  PhoneCall,
+} from "lucide-react";
 import { api } from "@/lib/api-client";
 import { useToast } from "./Toast";
 import type { Admin } from "@/lib/types";
@@ -12,6 +20,7 @@ import type { Admin } from "@/lib/types";
 const NAV_ITEMS = [
   { href: "/", label: "Companies", icon: Building2 },
   { href: "/subscriptions", label: "Subscriptions", icon: CreditCard },
+  { href: "/inquiries", label: "Call Requests", icon: PhoneCall },
   { href: "/settings/payment", label: "Settings", icon: Settings },
 ] as const;
 

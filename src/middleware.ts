@@ -20,6 +20,7 @@ export function middleware(req: NextRequest) {
     pathname === "/" ||
     pathname.startsWith("/companies") ||
     pathname.startsWith("/subscriptions") ||
+    pathname.startsWith("/inquiries") ||
     pathname.startsWith("/settings");
   if (isProtected && !hasSession) {
     const url = new URL("/login", req.url);
@@ -36,6 +37,7 @@ export const config = {
     "/login",
     "/companies/:path*",
     "/subscriptions/:path*",
+    "/inquiries/:path*",
     "/settings/:path*",
   ],
 };

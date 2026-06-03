@@ -9,6 +9,10 @@ import type {
   ApprovalStatus,
   Company,
   CompaniesResponse,
+  EnterpriseInquiriesResponse,
+  InquiryResponse,
+  InquiryStatus,
+  InquiryStatusPayload,
   PaymentSettingResponse,
   ReviewPayload,
   ReviewResponse,
@@ -169,6 +173,25 @@ export const api = {
     payload: SetSubscriptionPayload
   ): Promise<SetSubscriptionResponse> {
     return request(`/api/companies/${companyId}/subscription`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // --- Enterprise call-request inquiries -------------------------------------
+
+  enterpriseInquiries(
+    status?: InquiryStatus | "ALL"
+  ): Promise<EnterpriseInquiriesResponse> {
+    const qs = status && status !== "ALL" ? `?status=${status}` : "";
+    return request(`/api/enterprise-inquiries${qs}`);
+  },
+
+  updateInquiryStatus(
+    id: number | string,
+    payload: InquiryStatusPayload
+  ): Promise<InquiryResponse> {
+    return request(`/api/enterprise-inquiries/${id}/status`, {
       method: "POST",
       body: JSON.stringify(payload),
     });
