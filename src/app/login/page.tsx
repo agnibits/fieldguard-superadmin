@@ -47,7 +47,10 @@ export default function LoginPage() {
         if (err.status === 401) {
           message = "Invalid email or password.";
         } else if (err.status === 429) {
-          message = `Too many sign-in attempts. Please wait ${RATE_LIMIT_COOLDOWN_SECONDS} seconds and try again.`;
+          // 429 from the upstream edge (typically Cloudflare in front of the
+          // backend) — not the user's fault and not a credentials issue. It
+          // self-resolves in ~1 minute, which the cooldown matches.
+          message = `Login is temporarily rate-limited upstream. This usually clears in about a minute — please wait and try again.`;
           setCooldown(RATE_LIMIT_COOLDOWN_SECONDS);
         } else if (err.status >= 500) {
           message =
