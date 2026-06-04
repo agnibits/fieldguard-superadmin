@@ -57,7 +57,7 @@ green-and-white theme.
 
    ```env
    # .env.local
-   NEXT_PUBLIC_API_BASE_URL=https://fieldguard-be.onrender.com
+   NEXT_PUBLIC_API_BASE_URL=https://fieldguard.duckdns.org
    ```
 
    > Despite the `NEXT_PUBLIC_` prefix, the URL is only ever used **server-side** by the
@@ -90,7 +90,7 @@ the service for you.
 2. In the Render dashboard: **New + → Blueprint**, then select this repo. Render reads
    `render.yaml` and shows a `fieldguard-admin` web service.
 3. When prompted, set **`NEXT_PUBLIC_API_BASE_URL`** to your backend's public HTTPS URL
-   (e.g. `https://fieldguard-be.onrender.com`, no trailing slash). It's marked
+   (e.g. `https://fieldguard.duckdns.org`, no trailing slash). It's marked
    `sync: false` so it must be entered here — it is **not** stored in the repo.
 4. Click **Apply**. Render runs `npm ci && npm run build`, then starts the app with
    `npx next start -H 0.0.0.0 -p $PORT`.
@@ -112,7 +112,7 @@ Notes:
 
 | Variable                   | Required | Description                                                |
 | -------------------------- | -------- | ---------------------------------------------------------- |
-| `NEXT_PUBLIC_API_BASE_URL` | Yes      | Base URL of the FieldGuard backend, e.g. `https://fieldguard-be.onrender.com` (no trailing slash). |
+| `NEXT_PUBLIC_API_BASE_URL` | Yes      | Base URL of the FieldGuard backend, e.g. `https://fieldguard.duckdns.org` (no trailing slash). |
 
 ---
 
