@@ -18,6 +18,8 @@ import type {
   ReviewResponse,
   SetSubscriptionPayload,
   SetSubscriptionResponse,
+  SmsBlockPayload,
+  SmsBlockResponse,
   SubscriptionRequestsResponse,
   SubscriptionRequestStatus,
   UploadUrlResponse,
@@ -86,8 +88,19 @@ export const api = {
     return request(`/api/companies${qs}`);
   },
 
-  company(id: number | string): Promise<{ company: Company }> {
+  company(id: number | string): Promise<{ company: Company; smsUsage?: import("./types").SmsUsage }> {
     return request(`/api/companies/${id}`);
+  },
+
+  /** Block or resume SMS sending for a company (manual kill-switch). */
+  blockSms(
+    id: number | string,
+    payload: SmsBlockPayload
+  ): Promise<SmsBlockResponse> {
+    return request(`/api/companies/${id}/sms-block`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
   setApproval(id: number | string, payload: ApprovalPayload): Promise<{ company: Company }> {

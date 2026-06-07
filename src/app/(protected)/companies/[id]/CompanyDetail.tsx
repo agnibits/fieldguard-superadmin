@@ -18,28 +18,37 @@ import {
   Pencil,
   Users,
   Infinity as InfinityIcon,
+  Ban,
+  PlayCircle,
+  Loader2,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api-client";
-import type { ApprovalPayload, Company, SetSubscriptionPayload } from "@/lib/types";
+import type { ApprovalPayload, Company, SetSubscriptionPayload, SmsUsage } from "@/lib/types";
 import { formatDate } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
 import PlanBadge from "@/components/PlanBadge";
+import SmsUsageBar from "@/components/SmsUsageBar";
+import SmsBlockedBadge from "@/components/SmsBlockedBadge";
 import DocumentCard from "@/components/DocumentCard";
 import ImageLightbox from "@/components/ImageLightbox";
 import ConfirmModal from "@/components/ConfirmModal";
 import RejectModal from "@/components/RejectModal";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 import ManagePlanModal from "@/components/ManagePlanModal";
+import SmsBlockModal from "@/components/SmsBlockModal";
 import { DetailSkeleton } from "@/components/Skeletons";
 import { ErrorState } from "@/components/States";
 import { useToast } from "@/components/Toast";
 
-type Dialog = "none" | "approve" | "pending" | "reject" | "delete" | "plan";
+type Dialog = "none" | "approve" | "pending" | "reject" | "delete" | "plan" | "smsBlock";
 
 export default function CompanyDetail({ id }: { id: string }) {
   const toast = useToast();
   const router = useRouter();
   const [company, setCompany] = useState<Company | null>(null);
+  // The detail endpoint returns smsUsage at the top level (and also nested
+  // under company on list payloads) — we hold whichever surfaced.
+  const [smsUsage, setSmsUsage] = useState<SmsUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -59,6 +68,9 @@ export default function CompanyDetail({ id }: { id: string }) {
     try {
       const res = await api.company(id);
       setCompany(res.company);
+      // Prefer the top-level smsUsage from the detail endpoint; fall back to
+      // whatever the company payload itself carries.
+      setSmsUsage(res.smsUsage ?? res.company.smsUsage ?? null);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) return; // redirecting
       if (err instanceof ApiError && err.status === 404) {
@@ -129,6 +141,27 @@ export default function CompanyDetail({ id }: { id: string }) {
     } catch (err) {
       const msg =
         err instanceof ApiError ? err.message : "Could not update the plan.";
+      toast.error(msg);
+    } finally {
+      setActing(false);
+    }
+  };
+
+  // Manual SMS kill-switch. Stopping captures an optional reason via the
+  // SmsBlockModal; resuming is a one-click confirm (no reason needed).
+  const runSmsBlock = async (blocked: boolean, reason?: string) => {
+    setActing(true);
+    try {
+      const res = await api.blockSms(id, blocked ? { blocked, reason } : { blocked });
+      setCompany(res.company);
+      // The block toggle doesn't change usage figures, but the backend may
+      // still send refreshed smsUsage nested on company. Keep it in sync.
+      if (res.company.smsUsage) setSmsUsage(res.company.smsUsage);
+      setDialog("none");
+      toast.success(blocked ? "SMS stopped for this company." : "SMS resumed.");
+    } catch (err) {
+      const msg =
+        err instanceof ApiError ? err.message : "Could not update SMS block.";
       toast.error(msg);
     } finally {
       setActing(false);
@@ -282,6 +315,88 @@ export default function CompanyDetail({ id }: { id: string }) {
         </section>
       )}
 
+      {/* SMS — usage this month + manual kill-switch. Only meaningful once the
+          company is approved (un-approved companies can't send SMS anyway). */}
+      {company.approvalStatus === "APPROVED" && (
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="flex items-center gap-2 text-base font-semibold text-slate-800">
+                SMS usage
+                {company.smsBlocked && (
+                  <SmsBlockedBadge reason={company.smsBlockReason} />
+                )}
+              </h2>
+              <p className="mt-0.5 text-sm text-slate-500">
+                {smsUsage?.month
+                  ? `Month ${smsUsage.month} · resets on the 1st (Nepal)`
+                  : "Resets on the 1st of each Nepal month."}{" "}
+                Includes shop-receipt, cheque-settle, and OTP. Internal alerts are
+                free.
+              </p>
+            </div>
+
+            {company.smsBlocked ? (
+              <button
+                type="button"
+                onClick={() => runSmsBlock(false)}
+                disabled={acting}
+                className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-lg border border-brand-300 bg-white px-3 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {acting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <PlayCircle className="h-4 w-4" />
+                )}
+                Resume SMS
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setDialog("smsBlock")}
+                disabled={acting}
+                className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Ban className="h-4 w-4" />
+                Stop SMS
+              </button>
+            )}
+          </div>
+
+          <div className="mt-5">
+            {smsUsage ? (
+              <SmsUsageBar usage={smsUsage} blocked={company.smsBlocked} />
+            ) : (
+              <p className="text-sm italic text-slate-400">
+                No SMS usage data available yet.
+              </p>
+            )}
+          </div>
+
+          {/* Block reason — surfaced inline so admins don't have to hover */}
+          {company.smsBlocked && company.smsBlockReason && (
+            <p className="mt-3 rounded-lg border border-red-100 bg-red-50/60 px-3 py-2 text-xs text-red-700">
+              <span className="font-semibold">Block reason:</span>{" "}
+              {company.smsBlockReason}
+            </p>
+          )}
+
+          {/* Plan-specific footnote so the admin understands the enforcement
+              rule for this company without leaving the page. */}
+          <p className="mt-3 text-xs text-slate-400">
+            {company.subscriptionPlan === "FREE" &&
+              "FREE plan auto-blocks SMS when the 50/mo quota is reached."}
+            {company.subscriptionPlan === "PRO" &&
+              "PRO plan never auto-blocks — over-quota only flags as a warning."}
+            {company.subscriptionPlan === "ENTERPRISE" &&
+              "ENTERPRISE plan has unlimited SMS."}
+            {!company.subscriptionPlan &&
+              "Plan-based SMS quota applies once a plan is set."}
+            {" Manual block overrides any plan rule."}
+          </p>
+        </section>
+      )}
+
       {/* Document review */}
       <section className="mt-6">
         <h2 className="mb-3 text-base font-semibold text-slate-800">Document review</h2>
@@ -432,6 +547,14 @@ export default function CompanyDetail({ id }: { id: string }) {
         loading={acting}
         onClose={() => setDialog("none")}
         onConfirm={runSetPlan}
+      />
+
+      <SmsBlockModal
+        open={dialog === "smsBlock"}
+        companyName={company.name}
+        loading={acting}
+        onClose={() => setDialog("none")}
+        onConfirm={(reason) => runSmsBlock(true, reason)}
       />
     </div>
   );

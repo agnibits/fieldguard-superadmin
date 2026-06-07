@@ -11,13 +11,32 @@ import { Loader2, Crown, Tag, Building } from "lucide-react";
 import Modal from "./Modal";
 import type { Plan, SetSubscriptionPayload } from "@/lib/types";
 
-const PLAN_OPTIONS: { value: Plan; label: string; description: string; icon: typeof Tag }[] = [
-  { value: "FREE", label: "Free", description: "Default tier. No expiry, no seat cap.", icon: Tag },
-  { value: "PRO", label: "Pro", description: "Paid plan for a fixed number of months.", icon: Crown },
+const PLAN_OPTIONS: {
+  value: Plan;
+  label: string;
+  description: string;
+  sms: string;
+  icon: typeof Tag;
+}[] = [
+  {
+    value: "FREE",
+    label: "Free",
+    description: "Default tier. No expiry, no seat cap.",
+    sms: "50 SMS/mo · auto-blocks at quota",
+    icon: Tag,
+  },
+  {
+    value: "PRO",
+    label: "Pro",
+    description: "Paid plan for a fixed number of months.",
+    sms: "300 SMS/mo · over-quota warns but doesn't block",
+    icon: Crown,
+  },
   {
     value: "ENTERPRISE",
     label: "Enterprise",
     description: "Custom deal — set seat limit (or leave unlimited) and optional duration.",
+    sms: "Unlimited SMS",
     icon: Building,
   },
 ];
@@ -166,6 +185,9 @@ export default function ManagePlanModal({
                 <p className="text-sm font-semibold text-slate-800">{opt.label}</p>
                 <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
                   {opt.description}
+                </p>
+                <p className="mt-1 text-[11px] font-medium text-slate-400">
+                  {opt.sms}
                 </p>
               </div>
             </button>

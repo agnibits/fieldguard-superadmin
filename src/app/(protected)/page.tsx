@@ -153,6 +153,7 @@ export default function DashboardPage() {
                     </span>
                   </th>
                   <th className="px-4 py-3">Contact</th>
+                  <th className="px-4 py-3">SMS this month</th>
                   <th className="px-4 py-3">Registered</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Action</th>

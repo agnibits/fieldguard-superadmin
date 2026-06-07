@@ -8,6 +8,8 @@ import type { Company } from "@/lib/types";
 import { formatDate } from "@/lib/format";
 import StatusBadge from "./StatusBadge";
 import PlanBadge from "./PlanBadge";
+import SmsUsageBar from "./SmsUsageBar";
+import SmsBlockedBadge from "./SmsBlockedBadge";
 
 export default function CompanyCard({ company }: { company: Company }) {
   return (
@@ -30,6 +32,9 @@ export default function CompanyCard({ company }: { company: Company }) {
           {company.subscriptionPlan && (
             <PlanBadge plan={company.subscriptionPlan} size="xs" />
           )}
+          {company.smsBlocked && (
+            <SmsBlockedBadge reason={company.smsBlockReason} size="xs" />
+          )}
         </div>
       </div>
 
@@ -43,6 +48,12 @@ export default function CompanyCard({ company }: { company: Company }) {
           <span className="truncate">{company.phone || "No phone"}</span>
         </p>
       </div>
+
+      {company.smsUsage && (
+        <div className="mt-3">
+          <SmsUsageBar usage={company.smsUsage} blocked={company.smsBlocked} compact />
+        </div>
+      )}
 
       <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
         <span className="text-xs text-slate-400">
@@ -77,6 +88,15 @@ export function CompanyRow({ company }: { company: Company }) {
           <span className="block text-xs text-slate-400">{company.phone || "—"}</span>
         </Link>
       </td>
+      <td className="px-4 py-3">
+        <Link href={`/companies/${company.id}`} className="block w-44">
+          {company.smsUsage ? (
+            <SmsUsageBar usage={company.smsUsage} blocked={company.smsBlocked} compact />
+          ) : (
+            <span className="text-xs text-slate-400">—</span>
+          )}
+        </Link>
+      </td>
       <td className="px-4 py-3 text-sm text-slate-500">
         <Link href={`/companies/${company.id}`} className="block whitespace-nowrap">
           {formatDate(company.createdAt)}
@@ -88,6 +108,9 @@ export function CompanyRow({ company }: { company: Company }) {
             <StatusBadge status={company.approvalStatus} size="sm" />
             {company.subscriptionPlan && (
               <PlanBadge plan={company.subscriptionPlan} size="xs" />
+            )}
+            {company.smsBlocked && (
+              <SmsBlockedBadge reason={company.smsBlockReason} size="xs" />
             )}
           </div>
         </Link>

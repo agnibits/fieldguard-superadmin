@@ -22,6 +22,24 @@ export interface Company {
   subscriptionPlan?: Plan;
   subscriptionExpiresAt?: string | null;
   seatLimit?: number | null;
+
+  // SMS kill-switch + monthly usage. Manual block wins over any plan rule;
+  // PRO/ENTERPRISE never auto-block, FREE blocks automatically at 50/mo.
+  smsBlocked?: boolean;
+  smsBlockReason?: string | null;
+  smsUsage?: SmsUsage;
+}
+
+export interface SmsUsage {
+  month: string; // e.g. "2026-06" — Nepal month boundary
+  used: number;
+  /** null when plan is unlimited (ENTERPRISE). */
+  quota: number | null;
+  /** null when plan is unlimited. */
+  remaining: number | null;
+  unlimited: boolean;
+  /** True when used >= quota. For FREE this also means SMS is blocked. */
+  overQuota: boolean;
 }
 
 export interface Admin {
@@ -41,10 +59,24 @@ export interface MeResponse {
 
 export interface CompaniesResponse {
   count: number;
+  /** Current billing month in "YYYY-MM" form. All smsUsage rows align to this. */
+  smsMonth?: string;
   companies: Company[];
 }
 
 export interface CompanyResponse {
+  company: Company;
+  /** Backend also returns smsUsage at the top level on the detail endpoint. */
+  smsUsage?: SmsUsage;
+}
+
+// --- SMS kill-switch (block / resume) ----------------------------------------
+
+export type SmsBlockPayload =
+  | { blocked: true; reason?: string }
+  | { blocked: false };
+
+export interface SmsBlockResponse {
   company: Company;
 }
 
