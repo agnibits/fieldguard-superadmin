@@ -21,9 +21,11 @@ import {
   Ban,
   PlayCircle,
   Loader2,
+  Lock,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api-client";
 import type { ApprovalPayload, Company, SetSubscriptionPayload, SmsUsage } from "@/lib/types";
+import { PLAN_META } from "@/lib/plans";
 import { formatDate } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
 import PlanBadge from "@/components/PlanBadge";
@@ -312,6 +314,25 @@ export default function CompanyDetail({ id }: { id: string }) {
               </dd>
             </div>
           </dl>
+
+          {/* Lock-on-expire warning. Backend behaviour: when the subscription
+              window closes, the company is LOCKED — no new staff and SMS
+              paused — until they resubscribe. Existing data stays safe.
+              Surfacing this here means the admin sees the consequence
+              alongside the date. */}
+          {company.subscriptionExpiresAt && (
+            <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-800">
+              <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                Account will LOCK on{" "}
+                <span className="font-semibold">
+                  {formatDate(company.subscriptionExpiresAt)}
+                </span>{" "}
+                if not renewed — no new staff and SMS paused until resubscribed.
+                Existing data stays safe.
+              </span>
+            </div>
+          )}
         </section>
       )}
 
@@ -384,14 +405,9 @@ export default function CompanyDetail({ id }: { id: string }) {
           {/* Plan-specific footnote so the admin understands the enforcement
               rule for this company without leaving the page. */}
           <p className="mt-3 text-xs text-slate-400">
-            {company.subscriptionPlan === "FREE" &&
-              "FREE plan auto-blocks SMS when the 50/mo quota is reached."}
-            {company.subscriptionPlan === "PRO" &&
-              "PRO plan never auto-blocks — over-quota only flags as a warning."}
-            {company.subscriptionPlan === "ENTERPRISE" &&
-              "ENTERPRISE plan has unlimited SMS."}
-            {!company.subscriptionPlan &&
-              "Plan-based SMS quota applies once a plan is set."}
+            {company.subscriptionPlan
+              ? PLAN_META[company.subscriptionPlan]?.smsRule
+              : "Plan-based SMS quota applies once a plan is set."}
             {" Manual block overrides any plan rule."}
           </p>
         </section>

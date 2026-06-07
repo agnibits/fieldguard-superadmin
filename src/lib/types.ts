@@ -2,7 +2,7 @@
 
 export type ApprovalStatus = "PENDING_APPROVAL" | "APPROVED" | "REJECTED";
 
-export type Plan = "FREE" | "PRO" | "ENTERPRISE";
+export type Plan = "FREE" | "STARTER" | "GROWTH" | "ENTERPRISE";
 
 export interface Company {
   id: number;
@@ -24,7 +24,8 @@ export interface Company {
   seatLimit?: number | null;
 
   // SMS kill-switch + monthly usage. Manual block wins over any plan rule;
-  // PRO/ENTERPRISE never auto-block, FREE blocks automatically at 50/mo.
+  // each plan auto-blocks at its own quota (FREE 50 / STARTER 300 / GROWTH 900),
+  // ENTERPRISE is unlimited.
   smsBlocked?: boolean;
   smsBlockReason?: string | null;
   smsUsage?: SmsUsage;
@@ -156,7 +157,8 @@ export interface ReviewResponse {
 
 export type SetSubscriptionPayload =
   | { plan: "FREE" }
-  | { plan: "PRO"; months: number }
+  | { plan: "STARTER"; months: number }
+  | { plan: "GROWTH"; months: number }
   | { plan: "ENTERPRISE"; seatLimit?: number | null; months?: number };
 
 export interface SetSubscriptionResponse {

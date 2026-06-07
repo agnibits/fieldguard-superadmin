@@ -1,7 +1,7 @@
 // Compact SMS usage indicator: "SMS: 6 / 300 · 294 left" + a thin progress bar.
 // Handles three states:
 //   - unlimited (ENTERPRISE): "SMS: 6 / ∞" with no bar
-//   - over-quota: red (FREE → blocked; PRO → just a warning)
+//   - over-quota: red (every plan auto-blocks SMS when it hits its quota)
 //   - normal: brand green; amber after 70%
 //
 // `blocked` overrides the colour to red so a manually-blocked row reads as

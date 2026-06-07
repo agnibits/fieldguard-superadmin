@@ -1,45 +1,31 @@
 "use client";
 
-// Manual plan override modal (Section D). Lets a super-admin set a company's
-// subscription directly — for comps, Enterprise deals, or fixes. Payload shape
-// depends on the chosen plan:
-//   FREE       → { plan: "FREE" }
-//   PRO        → { plan: "PRO", months }
-//   ENTERPRISE → { plan: "ENTERPRISE", seatLimit?, months? }  (both optional)
+// Manual plan override modal. Lets a super-admin set a company's subscription
+// directly — for comps, Enterprise deals, or fixes. Payload shape per plan:
+//   FREE                  → { plan: "FREE" }
+//   STARTER / GROWTH      → { plan, months }            // months required
+//   ENTERPRISE            → { plan, seatLimit?, months? }
+//
+// Expiry note: every paid plan (and the FREE trial itself) LOCKS the account
+// when its time runs out — new staff can't be added and SMS is paused until
+// resubscribed. Existing data stays safe. The copy below mentions this so the
+// admin sees the consequence before saving.
+
 import { useEffect, useId, useState } from "react";
-import { Loader2, Crown, Tag, Building } from "lucide-react";
+import { Loader2, Tag, Sparkles, Rocket, Building } from "lucide-react";
 import Modal from "./Modal";
 import type { Plan, SetSubscriptionPayload } from "@/lib/types";
+import { PLAN_META, PAID_TIMED_PLANS } from "@/lib/plans";
 
-const PLAN_OPTIONS: {
-  value: Plan;
-  label: string;
-  description: string;
-  sms: string;
-  icon: typeof Tag;
-}[] = [
-  {
-    value: "FREE",
-    label: "Free",
-    description: "Default tier. No expiry, no seat cap.",
-    sms: "50 SMS/mo · auto-blocks at quota",
-    icon: Tag,
-  },
-  {
-    value: "PRO",
-    label: "Pro",
-    description: "Paid plan for a fixed number of months.",
-    sms: "300 SMS/mo · over-quota warns but doesn't block",
-    icon: Crown,
-  },
-  {
-    value: "ENTERPRISE",
-    label: "Enterprise",
-    description: "Custom deal — set seat limit (or leave unlimited) and optional duration.",
-    sms: "Unlimited SMS",
-    icon: Building,
-  },
-];
+// Order matters — this is the order shown in the picker.
+const PLAN_ORDER: Plan[] = ["FREE", "STARTER", "GROWTH", "ENTERPRISE"];
+
+const PLAN_ICONS: Record<Plan, typeof Tag> = {
+  FREE: Tag,
+  STARTER: Sparkles,
+  GROWTH: Rocket,
+  ENTERPRISE: Building,
+};
 
 export default function ManagePlanModal({
   open,
@@ -66,7 +52,13 @@ export default function ManagePlanModal({
   onClose: () => void;
 }) {
   const titleId = useId();
-  const [plan, setPlan] = useState<Plan>(initialPlan ?? currentPlan ?? "PRO");
+
+  // Default selection ladder: explicit initialPlan → current plan (unless on
+  // FREE — in which case STARTER is the natural upgrade target) → STARTER.
+  const defaultPlan = (): Plan =>
+    initialPlan ?? (currentPlan && currentPlan !== "FREE" ? currentPlan : "STARTER");
+
+  const [plan, setPlan] = useState<Plan>(defaultPlan());
   const [months, setMonths] = useState<string>(
     initialMonths !== undefined ? String(initialMonths) : "1"
   );
@@ -85,9 +77,7 @@ export default function ManagePlanModal({
   // values — e.g. opening the modal for a different inquiry.
   useEffect(() => {
     if (!open) return;
-    const fallbackPlan: Plan =
-      initialPlan ?? (currentPlan === "FREE" ? "PRO" : currentPlan ?? "PRO");
-    setPlan(fallbackPlan);
+    setPlan(defaultPlan());
     setMonths(initialMonths !== undefined ? String(initialMonths) : "1");
     setSeatLimit(
       initialSeatLimit !== undefined && initialSeatLimit !== null
@@ -96,6 +86,7 @@ export default function ManagePlanModal({
     );
     setSeatUnlimited(initialSeatLimit === undefined || initialSeatLimit === null);
     setErrors({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, currentPlan, initialPlan, initialMonths, initialSeatLimit]);
 
   const submit = () => {
@@ -104,7 +95,8 @@ export default function ManagePlanModal({
 
     if (plan === "FREE") {
       payload = { plan };
-    } else if (plan === "PRO") {
+    } else if (PAID_TIMED_PLANS.has(plan)) {
+      // STARTER / GROWTH — months required, no seat limit.
       const m = Number(months);
       if (!Number.isInteger(m) || m < 1) {
         next.months = "Enter a positive integer.";
@@ -113,9 +105,9 @@ export default function ManagePlanModal({
         setErrors(next);
         return;
       }
-      payload = { plan, months: m };
+      payload = { plan: plan as "STARTER" | "GROWTH", months: m };
     } else {
-      // ENTERPRISE
+      // ENTERPRISE — both seatLimit and months optional, validated if given.
       const out: SetSubscriptionPayload = { plan: "ENTERPRISE" };
       if (!seatUnlimited) {
         const sl = Number(seatLimit);
@@ -144,6 +136,8 @@ export default function ManagePlanModal({
     onConfirm(payload);
   };
 
+  const meta = PLAN_META[plan];
+
   return (
     <Modal open={open} onClose={loading ? () => {} : onClose} labelledBy={titleId} closeOnBackdrop={!loading}>
       <h2 id={titleId} className="text-lg font-semibold text-slate-900">
@@ -151,21 +145,26 @@ export default function ManagePlanModal({
       </h2>
       <p className="mt-1 text-sm text-slate-500">
         Set <span className="font-semibold text-slate-700">{companyName}</span>&rsquo;s
-        subscription directly. For PRO, time stacks on top of any active subscription.
+        subscription directly. Months stack on top of any active paid time.
       </p>
 
       {/* Plan selector — radio cards */}
       <div role="radiogroup" aria-label="Plan" className="mt-5 space-y-2">
-        {PLAN_OPTIONS.map((opt) => {
-          const Icon = opt.icon;
-          const active = plan === opt.value;
+        {PLAN_ORDER.map((value) => {
+          const optMeta = PLAN_META[value];
+          const Icon = PLAN_ICONS[value];
+          const active = plan === value;
+          const smsHint =
+            optMeta.smsQuota === null
+              ? "Unlimited SMS"
+              : `${optMeta.smsQuota} SMS/mo · auto-blocks at quota`;
           return (
             <button
-              key={opt.value}
+              key={value}
               type="button"
               role="radio"
               aria-checked={active}
-              onClick={() => setPlan(opt.value)}
+              onClick={() => setPlan(value)}
               disabled={loading}
               className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition disabled:opacity-60 ${
                 active
@@ -182,13 +181,11 @@ export default function ManagePlanModal({
               </span>
               <Icon className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-slate-800">{opt.label}</p>
+                <p className="text-sm font-semibold text-slate-800">{optMeta.label}</p>
                 <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
-                  {opt.description}
+                  {optMeta.description}
                 </p>
-                <p className="mt-1 text-[11px] font-medium text-slate-400">
-                  {opt.sms}
-                </p>
+                <p className="mt-1 text-[11px] font-medium text-slate-400">{smsHint}</p>
               </div>
             </button>
           );
@@ -196,7 +193,7 @@ export default function ManagePlanModal({
       </div>
 
       {/* Plan-specific fields */}
-      {plan === "PRO" && (
+      {PAID_TIMED_PLANS.has(plan) && (
         <div className="mt-4">
           <label htmlFor="months" className="mb-1.5 block text-sm font-medium text-slate-700">
             Duration (months) <span className="text-red-600">*</span>
@@ -215,7 +212,8 @@ export default function ManagePlanModal({
           />
           {errors.months && <p className="mt-1.5 text-xs font-medium text-red-600">{errors.months}</p>}
           <p className="mt-1 text-xs text-slate-400">
-            Stacks on top of any currently active PRO subscription.
+            Stacks on top of any active {meta.label} time. Account LOCKS on
+            expiry (no new staff, SMS off) until resubscribed.
           </p>
         </div>
       )}
@@ -286,13 +284,18 @@ export default function ManagePlanModal({
               }`}
             />
             {errors.months && <p className="mt-1.5 text-xs font-medium text-red-600">{errors.months}</p>}
+            <p className="mt-1 text-xs text-slate-400">
+              When months is set, the account LOCKS on expiry until renewed.
+              Leave blank for an open-ended deal.
+            </p>
           </div>
         </div>
       )}
 
       {plan === "FREE" && (
         <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-600">
-          The company will be moved back to the FREE tier. Any active paid time will be cleared.
+          Grants a fresh 1-month trial. Any active paid time will be cleared.
+          Account LOCKS when the trial ends until a paid plan is set.
         </div>
       )}
 

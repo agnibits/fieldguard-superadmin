@@ -1,6 +1,7 @@
 // POST /api/companies/:id/sms-block
 // Manually block or resume SMS sending for a company. Manual block wins over
-// any plan-based enforcement (FREE auto-block, PRO/ENTERPRISE unlimited).
+// any plan-based enforcement (FREE auto-blocks at 50/mo, STARTER at 300,
+// GROWTH at 900, ENTERPRISE unlimited).
 //
 // Payloads:
 //   { "blocked": true,  "reason": "non-payment" }   // optional reason
